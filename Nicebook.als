@@ -60,7 +60,7 @@ pred noteInvariant[n: Note]{
 	all w, w': Wall | n in w.contains and n in w'.contains implies w = w'
 }
 
-pred commentInvariant[c:Comment]{
+pred commentInvariant[c: Comment]{
     c not in c.^commentAttached
     some content : Content | 
 		content not in Comment and 
@@ -110,7 +110,7 @@ pred wallInvariant[w:Wall]{
 	// everything that attached to/contained by the w.contains 
 	// should be contained in w
 	all c : w.contains | 
-		all content: c.notePhotos + get_all_comments[c] | 
+		all content: c.notePhotos + get_all_comments[c] + get_all_related_contents[c] | 
 			content in w.contains
  
 }
@@ -143,7 +143,7 @@ fun get_all_comments[c: Content]: set Comment{
 }
 
 fun get_all_related_contents[c: Content]: set Content{
-	{m : Content | c in m.^commentAttached}
+	{c.^commentAttached}
 }
 
 run {
