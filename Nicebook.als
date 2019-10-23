@@ -1,3 +1,8 @@
+sig NiceBook{
+	userContainsContent: User-> set Content,
+	people: set User
+}
+
 sig User{
 	addCommentPrivacy: User -> PrivacyLevel,
 	otherContentPrivacy: Content -> PrivacyLevel,
@@ -30,6 +35,15 @@ sig Comment extends Content{
 sig Tag{
 	tagUser: one User,
 	tagAssociated: one Content
+}
+
+pred contentInvariant[c: Content]{
+	some w : Wall | c.status = Published implies c in w.contains
+}
+
+pred nicebookInvariant[n:NiceBook]{
+	all c: Content|	c.status != UnUploaded implies c.contentOwner->c in n.userContainsContent
+	all u: User| u in n.people
 }
 
 pred userInvariant[u:User]{
@@ -88,7 +102,7 @@ pred tagInvariant[t:Tag]{
     //As a tag, I must reference to a user, and that user must be my owner's friends
     all user: t.tagUser | user in t.tagAssociated.contentOwner.friends
 
-    // no duplicate tag
+    // no duplicate tag Assumption!
     all t': Tag |
 	t'.tagUser = t.tagUser and
 	t'.tagAssociated = t.tagAssociated implies
@@ -110,19 +124,20 @@ pred wallInvariant[w:Wall]{
 	// everything that attached to/contained by the w.contains 
 	// should be contained in w
 	all c : w.contains | 
-		all content: c.notePhotos + get_all_comments[c] + get_all_related_contents[c] | 
-			content in w.contains
+		all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
+			content in w.contains 
  
 }
 
 pred invariant[]{
+	all nb:NiceBook|nicebookInvariant[nb]
     all u:User|userInvariant[u]
+	all ct:Content|contentInvariant[ct]
     all p:Photo|photoInvariant[p]
     all n: Note| noteInvariant[n]
     all c:Comment|commentInvariant[c]
     all t:Tag|tagInvariant[t]
     all w:Wall|wallInvariant[w]
-
     //privacyInvariant
 } 
 
@@ -136,7 +151,7 @@ abstract sig PrivacyLevel{}
 one sig OnlyMe, Friends, FriendsOfFriends, EveryOne extends PrivacyLevel{}
 
 abstract sig PublishStatus{}
-one sig Published, Unpublished extends PublishStatus{}
+one sig UnUploaded, Uploaded, Published extends PublishStatus{}
 
 fun get_all_comments[c: Content]: set Comment{
 	{m : Comment | c in m.^commentAttached}
@@ -148,4 +163,4 @@ fun get_all_related_contents[c: Content]: set Content{
 
 run {
      invariant
- }for 5 but exactly 2 User, exactly 2 Photo, exactly 3 Comment, exactly 2 Note
+ }for 5 but exactly 1 NiceBook,exactly 2 User, exactly 2 Photo, exactly 3 Comment, exactly 2 Note
