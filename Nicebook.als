@@ -1,6 +1,7 @@
 sig NiceBook{
 	userContainsContent: User-> set Content,
 	people: set User
+	// userHasWall: User->one Wall
 }
 
 sig User{
@@ -17,7 +18,6 @@ sig Wall{
 
 abstract sig Content{
 	contentOwner: one User,
-	status: one PublishStatus
 }
 
 sig Note extends Content{
@@ -38,12 +38,14 @@ sig Tag{
 }
 
 pred contentInvariant[c: Content]{
-	some w : Wall | c.status = Published implies c in w.contains
+	// some w : Wall | c.status = Published implies c in w.contains
 }
 
 pred nicebookInvariant[n:NiceBook]{
-	all c: Content|	c.status != UnUploaded implies c.contentOwner->c in n.userContainsContent
-	all u: User| u in n.people
+	// all c: Content|	c.status != UnUploaded implies c.contentOwner->c in n.userContainsContent
+	// all u: User| u in n.people
+	all c: Content | 
+		some w: Wall | c in w.contains implies c.contentOwner -> c in n.userContainsContent
 }
 
 pred userInvariant[u:User]{
@@ -116,7 +118,7 @@ pred wallInvariant[w:Wall]{
 		content.contentOwner in w.wallOwner.friends
 
 	//As a wall, my content must be published
-	all c: w.contains | c.status = Published
+	// all c: w.contains | c.status = Published
 
 	// I feel like there is other things here, liek PhotoB should appear on A's
 	// wall, if A attached a comment to PhotoB...?
@@ -130,7 +132,6 @@ pred wallInvariant[w:Wall]{
 }
 
 pred invariant[]{
-	all nb:NiceBook|nicebookInvariant[nb]
     all u:User|userInvariant[u]
 	all ct:Content|contentInvariant[ct]
     all p:Photo|photoInvariant[p]
@@ -138,6 +139,7 @@ pred invariant[]{
     all c:Comment|commentInvariant[c]
     all t:Tag|tagInvariant[t]
     all w:Wall|wallInvariant[w]
+	all nb:NiceBook|nicebookInvariant[nb]
     //privacyInvariant
 } 
 
@@ -150,8 +152,8 @@ pred invariant[]{
 abstract sig PrivacyLevel{}
 one sig OnlyMe, Friends, FriendsOfFriends, EveryOne extends PrivacyLevel{}
 
-abstract sig PublishStatus{}
-one sig UnUploaded, Uploaded, Published extends PublishStatus{}
+// abstract sig PublishStatus{}
+// one sig UnUploaded, Uploaded, Published extends PublishStatus{}
 
 fun get_all_comments[c: Content]: set Comment{
 	{m : Comment | c in m.^commentAttached}
@@ -160,6 +162,25 @@ fun get_all_comments[c: Content]: set Comment{
 fun get_all_related_contents[c: Content]: set Content{
 	{c.^commentAttached}
 }
+
+pred upload[c: Content,u: User, n,n':NiceBook] {
+	// pre condition
+	u -> c not in n.userContainsContent
+
+	// frame condition
+	n'.people = n.people
+
+	//post condition
+	// some c' : Content | c'.contentOwner = c.contentOwner 
+}
+
+// assert uploadInvariant {
+// 	all n, n': NiceBook, c:Content, u:User |
+// 		nicebookInvariant[n] and upload[c,u,n,n'] implies
+// 		nicebookInvariant[n']
+// }
+
+// check uploadInvariant for 10
 
 run {
      invariant
