@@ -65,8 +65,8 @@ pred contentInvariant[nb: NiceBook]{
 
 pred photoInvariant[nb: NiceBook]{
 	// a photo can not be contained by 2 note
-	 all p :  nb.contents[nb.people] & Photo | 
-		all n, n':  nb.contents[nb.people] & Note | 
+	 all p :  Photo | 
+		all n, n':  Note | 
 			p in n.notePhotos and p in n'.notePhotos implies n = n'
 
 	// a photo can not be contained by 2 wall
@@ -165,6 +165,137 @@ fun get_all_comments[c: Content]: set Comment{
 fun get_all_related_contents[c: Content]: set Content{
 	{c.^commentAttached}
 }
+
+fun get_unpublished_content_for_user[nb: NiceBook, u: User] : set Content{
+	{
+		c: Content | 
+			c in nb.contents[u] and 
+			c not in (wallOwner.u).contains //and
+			//u in nb.people
+	}
+}
+
+fun get_comment_from_content[c: Content] : set Comment{
+	{comment: Comment | c in comment.^commentAttached}
+}
+
+
+/** following are operations **/
+
+	/**upload operations**/
+pred upload_note[nb, nb': NiceBook, u: User, c: Content]{
+	// photos included in this note should be able to upload
+	all p: c.notePhotos |
+		p not in nb.contents[nb.people] and
+		no commentAttached.p
+
+	nb'.contents = nb.contents + u->c + 
+		{user: User, p:Photo|user=u and p in c.notePhotos}
+}
+
+pred upload_photo[nb, nb': NiceBook, u: User, c: Content]{
+	// this photo should not be contained by a note
+	no notePhotos.c
+	nb'.contents = nb.contents + u->c
+}
+
+pred upload_comment[nb, nb': NiceBook, u: User, c: Content]{
+	// for convenience, the comment can only be upload to a
+	// uploaded but unpublished content and due to this, the 
+	// target content's user should be same
+	// if the target content is published, then this should be 
+	// completed in publish op
+	c.commentAttached in get_unpublished_content_for_user[nb, u]
+	nb'.contents = nb.contents + u->c
+}
+
+pred upload[nb, nb': NiceBook, u: User, c: Content]{
+	// Assume one can only upload content that is the highest level
+	// e.g. if you want to upload a photo that is contained by a note
+	// in this case, you should upload the note
+
+	// pre-condition
+	// c does not in NiceBook
+	c not in nb.contents[nb.people]
+
+	// common sense, c should not have comment
+	no commentAttached.c
+
+	// user is in NiceBook
+	u in nb.people
+
+	//post-condition, add c based on its type
+	(c in Note and upload_note[nb, nb', u, c]) or
+	(c in Photo and upload_photo[nb, nb', u, c]) or
+	(c in Comment and upload_comment[nb, nb', u, c])
+
+	// frame condition
+	nb'.people = nb.people
+	nb'.friends = nb.friends
+}
+
+//run upload for 3
+
+assert UploadPreserveInvariant {
+	all nb, nb': NiceBook, u:User, c:Content |
+		invariant[nb] and upload[nb,nb',u,c] implies
+		invariant[nb']
+}
+
+//check UploadPreserveInvariant for 5
+
+	/**remove operations**/
+pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
+	// everything belong to this note is unpublished
+	// note's photo
+	all p: c.notePhotos | p not in (wallOwner.u).contains
+	//note's comment
+	get_comment_from_content[c] not in (wallOwner.u).contains
+	// note's photo's comment
+	all p: c.notePhotos |
+		get_comment_from_content[p]	not in (wallOwner.u).contains
+
+	// remove note and everything belong to it
+	nb'.contents = nb.contents - u->c -
+		{user: User, p:Photo | user = u and p in c.notePhotos} -
+		{
+			user: User, cm: Comment | user=u and cm in 
+				(get_comment_from_content[c] +
+				{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
+		}
+}
+
+pred remove_photo[nb, nb': NiceBook, u: User, c: Content]{
+	// this photo should not be contained by a note
+	no notePhotos.c
+	nb'.contents = nb.contents + u->c
+}
+
+pred remove[nb, nb': NiceBook, u: User, c: Content]{
+	// pre condition
+	// uploaded but not published, user is in NiceBook
+	u in nb.people and u->c in nb.contents and
+		c not in (wallOwner.u).contains
+
+	// c is not a comment
+	c not in Comment
+
+	// post condition, remove c based on its type
+	(c in Note and remove_note[nb, nb', u, c]) or
+	(c in Photo and remove_photo[nb, nb', u, c])
+
+	// frame condition
+	nb'.people = nb.people
+	nb'.friends = nb.friends
+}
+
+assert RemovePreserveInvariant {
+	all nb, nb': NiceBook, u:User, c:Note |
+		invariant[nb] and remove[nb,nb',u,c] implies
+		invariant[nb']
+}
+
+check RemovePreserveInvariant// for 5
 
 run {
 	all nb: NiceBook | invariant[nb]
