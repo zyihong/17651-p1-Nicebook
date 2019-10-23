@@ -5,9 +5,9 @@ sig NiceBook{
 }
 
 sig User{
-	addCommentPrivacy: User -> PrivacyLevel,
-	otherContentPrivacy: Content -> PrivacyLevel,
-	myContentPrivacy: Content -> PrivacyLevel,
+//	addCommentPrivacy: User -> PrivacyLevel,
+//	otherContentPrivacy: Content -> PrivacyLevel,
+//	myContentPrivacy: Content -> PrivacyLevel,
 	friends: set User
 }
 
@@ -41,11 +41,16 @@ pred contentInvariant[c: Content]{
 	// some w : Wall | c.status = Published implies c in w.contains
 }
 
-pred nicebookInvariant[n:NiceBook]{
+pred nicebookInvariant[nb: NiceBook]{
 	// all c: Content|	c.status != UnUploaded implies c.contentOwner->c in n.userContainsContent
 	// all u: User| u in n.people
-	all c: Content | 
-		some w: Wall | c in w.contains implies c.contentOwner -> c in n.userContainsContent
+	all u: nb.people | u.friends in nb.people
+
+	all u: nb.people, c: Content | 
+		one w: Wall | 
+			u = w.wallOwner and 
+			c in w.contains implies 
+				u -> c in nb.userContainsContent
 }
 
 pred userInvariant[u:User]{
@@ -77,7 +82,7 @@ pred noteInvariant[n: Note]{
 }
 
 pred commentInvariant[c: Comment]{
-    c not in c.^commentAttached
+    all c': Comment | c' not in c'.^commentAttached
     some content : Content | 
 		content not in Comment and 
 		content in c.^commentAttached
@@ -131,15 +136,22 @@ pred wallInvariant[w:Wall]{
  
 }
 
-pred invariant[]{
-    all u:User|userInvariant[u]
-	all ct:Content|contentInvariant[ct]
-    all p:Photo|photoInvariant[p]
+pred invariant{
+    all nb: NiceBook|nicebookInvariant[nb]
+    all u: User|userInvariant[u]
+    //all ct:Content|contentInvariant[ct]
+    all p: Photo|photoInvariant[p]
     all n: Note| noteInvariant[n]
-    all c:Comment|commentInvariant[c]
-    all t:Tag|tagInvariant[t]
-    all w:Wall|wallInvariant[w]
-	all nb:NiceBook|nicebookInvariant[nb]
+    all c: Comment|commentInvariant[c]
+    all t: Tag |tagInvariant[t]
+    all w: Wall |wallInvariant[w]
+    //all u: nb.people|userInvariant[u]
+//    //all ct:Content|contentInvariant[ct]
+//    all p: nb.userContainsContent[nb.people] & Photo|photoInvariant[p]
+//    all n: nb.userContainsContent[nb.people] & Note| noteInvariant[n]
+//    all c: nb.userContainsContent[nb.people] & Comment|commentInvariant[c]
+//    all t: tagAssociated.(nb.userContainsContent[nb.people]) |tagInvariant[t]
+//    all w: wallOwner.(nb.people)|wallInvariant[w]
     //privacyInvariant
 } 
 
@@ -183,5 +195,6 @@ pred upload[c: Content,u: User, n,n':NiceBook] {
 // check uploadInvariant for 10
 
 run {
-     invariant
- }for 5 but exactly 1 NiceBook,exactly 2 User, exactly 2 Photo, exactly 3 Comment, exactly 2 Note
+    //all nb: NiceBook |invariant[nb]
+    invariant
+}for 5 but exactly 1 NiceBook, exactly 2 User, exactly 2 Photo, exactly 3 Comment, exactly 2 Note
