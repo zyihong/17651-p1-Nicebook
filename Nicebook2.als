@@ -159,6 +159,9 @@ pred wallInvariant[nb: NiceBook]{
 		all c : w.contains | 
 			all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
 				content in w.contains 
+
+	//TODO all contents in Wall.contains should be also in userViewContent,vice versa
+
  
 }
 
