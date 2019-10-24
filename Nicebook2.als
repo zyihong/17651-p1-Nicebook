@@ -15,7 +15,7 @@ sig User{
 sig Wall{
 	wallOwner: one User,
 	contains: set Content,
-	userViewContent: User -> set Content
+	// userViewContent: User -> set Content
 }
 
 abstract sig Content{
