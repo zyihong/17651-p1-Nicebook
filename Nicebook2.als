@@ -370,13 +370,14 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 	//if c does not in Nicebook upload them
 	//if c already uploaded, skip this upload but make sure that 
 	(c not in nb.contents[nb.people] and upload[nb,nb',u,c]) or
-	(c in nb.contents[u] and preUploadAndPublish[nb,nb',u,c]) 
+	(c in nb.contents[u] and preUploadAndPublish[nb,nb',u,c] and nb'.contents=nb.contents) 
 
 	/**post-condition**/
 	//publish c based on its type
 	(c in Note and publish_note[nb, nb', u, c,w,w']) or
 	(c in Photo and publish_photo[nb, nb', u, c,w,w']) 
 
+	
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
@@ -387,7 +388,7 @@ assert PublishPreserveInvariant {
 		invariant[nb']
 }
 
-check PublishPreserveInvariant for 3
+check PublishPreserveInvariant for 7
 
 run {
 	all nb: NiceBook | invariant[nb]
