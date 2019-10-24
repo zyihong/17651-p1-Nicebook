@@ -377,7 +377,7 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 	(c in Note and publish_note[nb, nb', u, c,w,w']) or
 	(c in Photo and publish_photo[nb, nb', u, c,w,w']) 
 
-    nb'.contents=nb.contents
+    nb'.people=nb.people
     nb'.friends=nb.friends
 }
 
