@@ -6,15 +6,12 @@ sig NiceBook{
 }
 
 sig User{
-	addCommentPrivacy: User -> PrivacyLevel,
-	otherContentPrivacy: Content -> PrivacyLevel,
-	myContentPrivacy: Content -> PrivacyLevel
-//	friends: set User
 }
 
 sig Wall{
 	wallOwner: one User,
 	contains: set Content,
+	privacySetting: one PrivacyLevel,
 	userViewContent: User -> set Content
 }
 
@@ -160,6 +157,10 @@ pred wallInvariant[nb: NiceBook]{
 			all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
 				content in w.contains 
  
+	all w:wallOwner.(nb.people)|
+		all c: w.contains | 
+			all u: getUserWhoCanView[nb, w.wallOwner] |
+				u->c in w.userViewContent
 }
 
 pred invariant[nb: NiceBook]{
@@ -405,9 +406,9 @@ fun getUserWhoCanView[n:NiceBook, u: User]: set User{
 
 	//{u} //Only Me
 
-	//{u.friends}
+	//{u+u.friends}
 
-	//{u.^friends}
+	//{u+u.friends+u.friends.friends}
 }
 
 fun viewable[n:NiceBook,u:User]:set Content{
