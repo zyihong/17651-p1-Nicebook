@@ -71,7 +71,7 @@ pred contentInvariant[nb: NiceBook]{
 
 	all c : nb.contents[nb.people] |
 		c not in Comment and c not in (wallOwner.((nb.contents).c)).contains implies 
-		((no w: Wall | c not in w.contains) and (no commentAttached.c))	
+		((all w: wallOwner.(nb.people) | c not in w.contains) and (no commentAttached.c))	
 }
 
 pred photoInvariant[nb: NiceBook]{
@@ -258,7 +258,7 @@ assert UploadPreserveInvariant {
 		invariant[nb']
 }
 
-//check UploadPreserveInvariant for 7
+check UploadPreserveInvariant for 7
 
 	/**remove operations**/
 
@@ -318,7 +318,7 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 //run remove for 5
 
 assert RemovePreserveInvariant {
-	all nb, nb': NiceBook, u:User, c:Note |
+	all nb, nb': NiceBook, u:User, c:Content |
 		invariant[nb] and remove[nb,nb',u,c] implies
 		invariant[nb']
 }
