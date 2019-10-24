@@ -349,6 +349,11 @@ pred publish_note[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
 		no commentAttached.p
 
     w'.contains=w.contains+c+c.notePhotos
+
+	//update the mapping who can view that content 
+	w'.userViewContent=w.userViewContent
+		+{user:User,p:Content|user in getUserWhoCanView[nb,u] and p =c}
+		+{user:User,p:c.notePhotos|user in getUserWhoCanView[nb,u]}
 }
 
 pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
