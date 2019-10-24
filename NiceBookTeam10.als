@@ -55,6 +55,8 @@ pred nicebookInvariant[nb: NiceBook]{
 	all u : User | u not in nb.people implies no nb.contents[u]
 }
 
+// Assumption: if the content(note/photo) is unpublished, then it can not
+// contains comments
 pred contentInvariant[nb: NiceBook]{
 	// no two users can have same content
 	all u, u' : nb.people, c: Content | 
@@ -66,9 +68,10 @@ pred contentInvariant[nb: NiceBook]{
 	// if it is not on its owner's wall
 	// however, we do not consider comment here because A can comment
 	// on B's comtent and that will only appear on B's wall
+
 	all c : nb.contents[nb.people] |
 		c not in Comment and c not in (wallOwner.((nb.contents).c)).contains implies 
-		no w: Wall | c not in w.contains
+		((no w: Wall | c not in w.contains) and (no commentAttached.c))	
 }
 
 pred photoInvariant[nb: NiceBook]{
@@ -258,32 +261,42 @@ assert UploadPreserveInvariant {
 //check UploadPreserveInvariant for 7
 
 	/**remove operations**/
+
+	
 pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
 	// everything belong to this note is unpublished
 	// note's photo
 	all p: c.notePhotos | p not in (wallOwner.u).contains
 	//note's comment
-	get_comment_from_content[c] not in (wallOwner.u).contains
+	// get_comment_from_content[c] not in (wallOwner.u).contains
 	// note's photo's comment
-	all p: c.notePhotos |
-		get_comment_from_content[p]	not in (wallOwner.u).contains
+	// all p: c.notePhotos |
+	// 	get_comment_from_content[p]	not in (wallOwner.u).contains
 
 	// remove note and everything belong to it
 	nb'.contents = nb.contents - u->c -
-		{user: User, p:Photo | user = u and p in c.notePhotos} -
-		{
-			user: User, cm: Comment | user=(nb.contents).cm and cm in 
-				(get_comment_from_content[c] +
-				{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
-		}
+		{user: User, p:Photo | user = u and p in c.notePhotos}
+		// {
+		// 	user: User, cm: Comment | user=(nb.contents).cm and cm in 
+		// 		(get_comment_from_content[c] +
+		// 		{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
+		// }
 }
 
 pred remove_photo[nb, nb': NiceBook, u: User, c: Content]{
-	// this photo should not be contained by a note
+	//No note contains photo, if there is a note, then you should remove note
 	no notePhotos.c
-	nb'.contents = nb.contents + u->c
+
+	
+	//Remove all photo's comment
+	get_comment_from_content[c]	not in (wallOwner.u).contains
+	
+	//Remove photo and everything belong to it
+	nb'.contents = nb.contents - u->c
+
 }
 
+//Assumption: only remove unpublished thing
 pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	// pre condition
 	// uploaded but not published, user is in NiceBook
