@@ -55,8 +55,8 @@ pred nicebookInvariant[nb: NiceBook]{
 	all u : User | u not in nb.people implies no nb.contents[u]
 }
 
-// Assumption: if the content(note/photo) is unpublished, then it can not
-// contains comments
+/**Assumption**/
+//if the content(note/photo) is unpublished, then it can not contains comments
 pred contentInvariant[nb: NiceBook]{
 	// no two users can have same content
 	all u, u' : nb.people, c: Content | 
@@ -118,8 +118,8 @@ pred commentInvariant[nb: NiceBook]{
 }
 
 pred tagInvariant[nb: NiceBook]{
-    	//As a tag, I must associate to a note or a photo
-    	all comment: Comment, t:Tag| comment not in t.tagAssociated
+    //As a tag, I must associate to a note or a photo
+    all comment: Comment, t:Tag| comment not in t.tagAssociated
 
 	// a tag can nonly be attached to published stuff /**Assumption**/
 	all t: Tag | 
@@ -129,7 +129,8 @@ pred tagInvariant[nb: NiceBook]{
     	all t: Tag, u: nb.people | 
 		u = t.tagUser implies u in nb.friends[nb.contents.(t.tagAssociated)]
 
-    	// no duplicate tag Assumption!
+		/**Assumption**/	
+		// no duplicate tag !
     	all t, t':  tagAssociated.(nb.contents[nb.people]) |
 		t'.tagUser = t.tagUser and
 		t'.tagAssociated = t.tagAssociated implies
@@ -198,7 +199,7 @@ fun get_comment_from_content[c: Content] : set Comment{
 
 /** following are operations **/
 
-	/**upload operations**/
+/**upload operations**/
 pred upload_note[nb, nb': NiceBook, u: User, c: Content]{
 	// photos included in this note should be able to upload
 	all p: c.notePhotos |
