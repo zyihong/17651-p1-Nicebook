@@ -61,6 +61,14 @@ pred contentInvariant[nb: NiceBook]{
 		u -> c in nb.contents and 
 		u' -> c in nb.contents implies
 			u' = u
+
+	// if this piece of content (if note/photo) can not appear on other's wall
+	// if it is not on its owner's wall
+	// however, we do not consider comment here because A can comment
+	// on B's comtent and that will only appear on B's wall
+	all c : nb.contents[nb.people] |
+		c not in Comment and c not in (wallOwner.((nb.contents).c)).contains implies 
+		no w: Wall | c not in w.contains
 }
 
 pred photoInvariant[nb: NiceBook]{
@@ -70,9 +78,9 @@ pred photoInvariant[nb: NiceBook]{
 			p in n.notePhotos and p in n'.notePhotos implies n = n'
 
 	// a photo can not be contained by 2 wall
-	all p :  nb.contents[nb.people] & Photo | 
-		all w, w': wallOwner.(nb.people) | 
-			p in w.contains and p in w'.contains implies w = w'
+	//all p :  nb.contents[nb.people] & Photo | 
+//		all w, w': wallOwner.(nb.people) | 
+//			p in w.contains and p in w'.contains implies w = w'
 
 	// every note that contains photo (in content) should be in the content map
 	all p: nb.contents[nb.people] & Photo |
@@ -81,9 +89,9 @@ pred photoInvariant[nb: NiceBook]{
 
 pred noteInvariant[nb : NiceBook]{
 	// a note can not be contained by 2 wall
-	all n :  nb.contents[nb.people] & Note | 
-		all w, w': wallOwner.(nb.people) | 
-			n in w.contains and n in w'.contains implies w = w'
+//	all n :  nb.contents[nb.people] & Note | 
+//		all w, w': wallOwner.(nb.people) | 
+//			n in w.contains and n in w'.contains implies w = w'
 
 	// the owner of the note and the photo it contains should be same
 	all n : nb.contents[nb.people] & Note, u: nb.people |
@@ -101,24 +109,28 @@ pred commentInvariant[nb: NiceBook]{
        //TODO As a comment, I must have a privacy setting that determines who is able to view me 
 
        // a comment can only be contained by one wall
-    	all c:  nb.contents[nb.people] & Comment | 
-		all w, w': wallOwner.(nb.people) | 
-			c in w.contains and c in w'.contains implies w = w'
+    	//all c:  nb.contents[nb.people] & Comment | 
+//		all w, w': wallOwner.(nb.people) | 
+//			c in w.contains and c in w'.contains implies w = w'
 }
 
 pred tagInvariant[nb: NiceBook]{
-    //As a tag, I must associate to a note or a photo
-    all comment: Comment, t:Tag| comment not in t.tagAssociated
+    	//As a tag, I must associate to a note or a photo
+    	all comment: Comment, t:Tag| comment not in t.tagAssociated
 
-    //As a tag, I must reference to a user, and that user must be my owner's friends
-    all t: Tag, u: User | 
-	u = t.tagUser implies u in nb.friends[nb.contents.(t.tagAssociated)]
+	// a tag can nonly be attached to published stuff /**Assumption**/
+	all t: Tag | 
+		t.tagAssociated in (wallOwner.(nb.people)).contains
 
-    // no duplicate tag Assumption!
-    all t, t':  tagAssociated.(nb.contents[nb.people]) |
-	t'.tagUser = t.tagUser and
-	t'.tagAssociated = t.tagAssociated implies
-		t' = t
+    	//As a tag, I must reference to a user, and that user must be my owner's friends
+    	all t: Tag, u: nb.people | 
+		u = t.tagUser implies u in nb.friends[nb.contents.(t.tagAssociated)]
+
+    	// no duplicate tag Assumption!
+    	all t, t':  tagAssociated.(nb.contents[nb.people]) |
+		t'.tagUser = t.tagUser and
+		t'.tagAssociated = t.tagAssociated implies
+			t' = t
 }
 
 pred wallInvariant[nb: NiceBook]{
@@ -130,7 +142,8 @@ pred wallInvariant[nb: NiceBook]{
 	all u: nb.people | 
 		all c: (wallOwner.u).contains |
 			c in User.(nb.contents) and
-			((nb.contents).c = u or (nb.contents).c in nb.friends[u])
+			((nb.contents).c = u or (nb.contents).c in nb.friends[u]) and 
+			(c not in Comment implies (nb.contents).c = u)
 
 	// I feel like there is other things here, liek PhotoB should appear on A's
 	// wall, if A attached a comment to PhotoB...?
@@ -242,7 +255,7 @@ assert UploadPreserveInvariant {
 		invariant[nb']
 }
 
-//check UploadPreserveInvariant for 5
+//check UploadPreserveInvariant for 7
 
 	/**remove operations**/
 pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
@@ -259,7 +272,7 @@ pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
 	nb'.contents = nb.contents - u->c -
 		{user: User, p:Photo | user = u and p in c.notePhotos} -
 		{
-			user: User, cm: Comment | user=u and cm in 
+			user: User, cm: Comment | user=(nb.contents).cm and cm in 
 				(get_comment_from_content[c] +
 				{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
 		}
@@ -289,13 +302,15 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	nb'.friends = nb.friends
 }
 
+//run remove for 5
+
 assert RemovePreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Note |
 		invariant[nb] and remove[nb,nb',u,c] implies
 		invariant[nb']
 }
 
-check RemovePreserveInvariant// for 5
+check RemovePreserveInvariant for 7
 
 run {
 	all nb: NiceBook | invariant[nb]
