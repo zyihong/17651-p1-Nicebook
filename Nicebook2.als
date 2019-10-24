@@ -15,7 +15,7 @@ sig User{
 sig Wall{
 	wallOwner: one User,
 	contains: set Content,
-	// userViewContent: User -> set Content
+	userViewContent: User -> set Content
 }
 
 abstract sig Content{
@@ -356,6 +356,10 @@ pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
     no notePhotos.c
 
     w.contains=w'.contains+c
+
+	//update the mapping who can view that content 
+	w'.userViewContent=w.userViewContent
+		+{user:User,p:Content|user in getUserWhoCanView[nb,u] and p =c}
 }
 
 pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
@@ -377,7 +381,8 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 	(c in Note and publish_note[nb, nb', u, c,w,w']) or
 	(c in Photo and publish_photo[nb, nb', u, c,w,w']) 
 
-	
+	w'.wallOwner=w.wallOwner
+
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
@@ -389,6 +394,20 @@ assert PublishPreserveInvariant {
 }
 
 check PublishPreserveInvariant for 7
+
+fun getUserWhoCanView[n:NiceBook, u: User]: set User{
+	{n.people}//Default All User
+
+	//{u} //Only Me
+
+	//{u.friends}
+
+	//{u.^friends}
+}
+
+fun viewable[n:NiceBook,u:User]:set Content{
+	{content: Content | all w:Wall | u->content in w.userViewContent}
+}
 
 run {
 	all nb: NiceBook | invariant[nb]
