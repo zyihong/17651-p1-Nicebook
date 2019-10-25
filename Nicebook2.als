@@ -143,11 +143,11 @@ pred wallInvariant[nb: NiceBook]{
  	all u: nb.people | one wallOwner.u
 	// Everything on the wall in the Nicebook should be in the map of u->c
 	// As a wall, my content must be from my owner or my owner's friends
+
 	all u: nb.people | 
 		all c: nb.wallContainer[(wallOwner.u)] |
 			c in User.(nb.contents) and
-			((nb.contents).c = u or (nb.contents).c in nb.friends[u]) and 
-			(c not in Comment implies (nb.contents).c = u)
+			(c not in Comment implies ((nb.contents).c = u or (nb.contents).c in nb.friends[u]))
 
 	// I feel like there is other things here, liek PhotoB should appear on A's
 	// wall, if A attached a comment to PhotoB...?
@@ -276,6 +276,7 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment]{
 
 	//that content should be in the wall, which means that content is published
 	c in nb.wallContainer[wallOwner.(nb.people)]
+	comment not in nb.wallContainer[wallOwner.(nb.people)]
 
 	//if c does not in Nicebook upload them
 	//if c already uploaded, skip this upload but make sure that 
@@ -300,7 +301,7 @@ assert addCommentPreserveInvariant {
 		invariant[nb']
 }
 
-check addCommentPreserveInvariant for 3
+check addCommentPreserveInvariant for 5
 
 run upload for 3
 
