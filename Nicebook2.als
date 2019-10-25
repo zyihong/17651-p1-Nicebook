@@ -512,6 +512,40 @@ assert AddTagPreserveInvariant {
 		invariant[nb']
 }
 
+/**removeTag operation **/
+pred removeTag[nb,nb':NiceBook, u:User, tag:Tag]{
+	//Assumption: Only tagAssociated.tag's owner can removeTag
+	u in (nb.contents).(tag.tagAssociated)
+
+	u in nb.people
+
+	//Assumption: You cannot remove a tag from a photo that in a note 
+	no notePhotos.(tag.tagAssociated)
+
+	tag.tagAssociated in nb.wallContainer[wallOwner.(tag.tagUser)]
+
+	nb'.wallContainer=nb.wallContainer- wallOwner.((tag.tagUser))->(tag.tagAssociated) -
+		{wall:Wall, p:Photo| wall in wallOwner.((tag.tagUser)) and p in (tag.tagAssociated).notePhotos} -
+		{	
+			wall: Wall, cm: nb.contents[nb.people] | wall in wallOwner.((tag.tagUser))
+			 and cm in ((*commentAttached).(tag.tagAssociated)+(*commentAttached).((tag.tagAssociated).notePhotos))
+		}
+
+	nb'.contents=nb.contents
+	nb'.friends=nb.friends
+	nb'.people=nb.people
+}
+
+run removeTag for 3
+
+assert RemoveTagPreserveInvariant {
+	all nb, nb': NiceBook, u:User, tag:Tag |
+		invariant[nb] and removeTag[nb,nb',u,tag] implies
+		invariant[nb']
+}
+
+check RemoveTagPreserveInvariant for 2
+
 //check AddTagPreserveInvariant for 5
 
 //run publish for 7
