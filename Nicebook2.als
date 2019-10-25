@@ -115,6 +115,9 @@ pred commentInvariant[nb: NiceBook]{
 
 	all c:  nb.contents[nb.people] & Comment | 
 		c in nb.wallContainer[wallOwner.(nb.people)]
+
+	// comment on some wall of NiceBook means it is on every wall of its container
+ 	all c: nb.wallContainer[wallOwner.(nb.people)] & Comment | nb.wallContainer.(c.commentAttached)->c in nb.wallContainer
 }
 
 pred tagInvariant[nb: NiceBook]{
@@ -156,7 +159,7 @@ pred wallInvariant[nb: NiceBook]{
 	// should be contained in w
 	all w: wallOwner.(nb.people) |
 		all c : nb.wallContainer[w] | 
-			all content: c.notePhotos + notePhotos.c + (*commentAttached).c | //get_all_related_contents[c] | //get_all_comments[c]
+			all content: c.notePhotos + notePhotos.c + c.(*commentAttached) | //get_all_related_contents[c] | //get_all_comments[c]
 				content in nb.wallContainer[w] 
 
 }
@@ -302,7 +305,7 @@ assert addCommentPreserveInvariant {
 		invariant[nb']
 }
 
-check addCommentPreserveInvariant for 5
+check addCommentPreserveInvariant for 7
 
 //run upload for 3
 
@@ -378,7 +381,7 @@ assert RemovePreserveInvariant {
 		invariant[nb']
 }
 
-check RemovePreserveInvariant for 2
+check RemovePreserveInvariant for 7
 
 	/**publish operations**/
 
@@ -544,9 +547,9 @@ assert RemoveTagPreserveInvariant {
 		invariant[nb']
 }
 
-check RemoveTagPreserveInvariant for 5
+check RemoveTagPreserveInvariant for 7
 
-check AddTagPreserveInvariant for 5
+check AddTagPreserveInvariant for 7
 
 run publish for 7
 
@@ -556,7 +559,7 @@ assert PublishPreserveInvariant {
 		invariant[nb']
 }
 
-check PublishPreserveInvariant for 2
+check PublishPreserveInvariant for 7
 
 fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 	w.privacySetting=EveryOne implies {nb.people} 
