@@ -2,6 +2,7 @@ sig NiceBook{
 	hasContent: User-> set Content,
 	hasFriends: User -> set User,
 	hasPeople: set User,
+	// userHasWall: User->one Wall
 	contains: Wall-> set Content
 }
 
@@ -14,6 +15,7 @@ sig Wall{
 }
 
 abstract sig Content{
+//	contentOwner: one User,
 }
 
 sig Note extends Content{
@@ -23,8 +25,8 @@ sig Note extends Content{
 sig Photo extends Content{}
 
 sig Comment extends Content{
-	// A comment must attach to a piece of content, 
-	// but that content cannot be itself
+	//As a comment, I must attach to a piece of content, 
+	//but that content cannot be itself
 	attachedTo: one Content
 }
 
@@ -40,140 +42,188 @@ pred nicebookInvariant[nb: NiceBook]{
 	// hasPeople contains all hasFriends
 	all u: nb.hasPeople | nb.hasFriends[u] in nb.hasPeople
 
-	// Symmetric friendship
+	// symmetric friendship
 	all u, u' : User | u -> u' in nb.hasFriends implies u' -> u in nb.hasFriends
 
-	// User is not friend of himself
+	// not friend of himself
 	no u: User | u -> u in nb.hasFriends
 
-	// Nicebook only contains contents owned by users in it
+	// nicebook only contain hasContent of its hasPeople
 	all u : User | u not in nb.hasPeople implies no nb.hasContent[u]
 }
 
 /**Assumption**/
-// If the content(note/photo) is unpublished, then it can not contains comments
+//if the content(note/photo) is unpublished, then it can not contains comments
 pred contentInvariant[nb: NiceBook]{
-	// No two users can have the same content
+	// no two users can have same content
 	all u, u' : nb.hasPeople, c: Content | 
 		u -> c in nb.hasContent and 
 		u' -> c in nb.hasContent implies
 			u' = u
 
-	// A piece of content (note/photo) can not appear on others wall
-	// if it is not on its owner's wall.
-	// However, we do not consider comment here because user A can comment
-	// on user B's comtent and that will only appear on B's wall
+	// if this piece of content (if note/photo) can not appear on other's wall
+	// if it is not on its owner's wall
+	// however, we do not consider comment here because A can comment
+	// on B's comtent and that will only appear on B's wall
+
 	all c : nb.hasContent[nb.hasPeople] |
 		c not in Comment and c not in nb.contains[(hasWallOwner.((nb.hasContent).c))] implies 
 		((all w: hasWallOwner.(nb.hasPeople) | c not in nb.contains[w]))
 }
 
 pred photoInvariant[nb: NiceBook]{
-	// A photo can not be contained by 2 different notes
+	// a photo can not be contained by 2 note
 	 all p :  Photo | 
 		all n, n':  Note | 
 			p in n.hasPhotos and p in n'.hasPhotos implies n = n'
 
-	// Every note that contains a photo (in content) should be in the
-	// hasContent relation in Nicebook
+	// a photo can not be contained by 2 wall
+	//all p :  nb.hasContent[nb.hasPeople] & Photo | 
+//		all w, w': hasWallOwner.(nb.hasPeople) | 
+//			p in w.contains and p in w'.contains implies w = w'
+
+	// every note that contains photo (in content) should be in the content map
 	all p: nb.hasContent[nb.hasPeople] & Photo |
 		hasPhotos.p in nb.hasContent[nb.hasPeople]
 }
 
 pred noteInvariant[nb : NiceBook]{
-	// The owner of the note and the photo it contains should be the same
+	// a note can not be contained by 2 wall
+//	all n :  nb.hasContent[nb.hasPeople] & Note | 
+//		all w, w': hasWallOwner.(nb.hasPeople) | 
+//			n in w.contains and n in w'.contains implies w = w'
+
+	// the owner of the note and the photo it contains should be same
 	all n : nb.hasContent[nb.hasPeople] & Note, u: nb.hasPeople |
 		u -> n in nb.hasContent implies
 			(all p : n.hasPhotos | u -> p in nb.hasContent)
 }
 
 pred commentInvariant[nb: NiceBook]{
-	// A comment can not be attached to itself and no cycles should be present
+	// comment can not be attached to itself and no loops
 	all c': Comment | c' not in c'.^attachedTo
     
-    // A comment can only attach to the content of its owner or be visible on others wall
+    	//As a comment, I can only attach to the content of my owner or visible on other's wall
 	all c: nb.hasContent[nb.hasPeople] & Comment |
 		c.attachedTo in nb.hasContent[nb.hasPeople]
-		
-	// TODO:
+       //TODO As a comment, I must have a privacy setting that determines who is able to view me 
+
+       // a comment can only be contained by one wall
+    	//all c:  nb.hasContent[nb.hasPeople] & Comment | 
+//		all w, w': hasWallOwner.(nb.hasPeople) | 
+//			c in w.contains and c in w'.contains implies w = w'
+
 	all c:  nb.hasContent[nb.hasPeople] & Comment | 
 		c in nb.contains[hasWallOwner.(nb.hasPeople)]
 
-	// If a comment is present in the current Nicebook, the content it is attached to 
-	// should also be in the Nicebook
- 	all c: nb.contains[hasWallOwner.(nb.hasPeople)] & Comment | 
-	nb.contains.(c.attachedTo)->c in nb.contains
+	// comment on some wall of NiceBook means it is on every wall of its container
+ 	all c: nb.contains[hasWallOwner.(nb.hasPeople)] & Comment | nb.contains.(c.attachedTo)->c in nb.contains
 }
 
 pred tagInvariant[nb: NiceBook]{
-    // A tag must associate to a note or a photo
+    //As a tag, I must associate to a note or a photo
     all comment: Comment, t:Tag| comment not in t.associatedWith
 
-    // A tag must refer to a user, and that user must be the tag's owner's friends
-    all t: Tag, u: nb.hasPeople | 
-	u = t.taggedUser and t.associatedWith in nb.hasContent[nb.hasPeople] implies 
-		u in nb.hasFriends[nb.hasContent.(t.associatedWith)]
+	// a tag can nonly be attached to published stuff /**Assumption**/
+//	all t: Tag | 
+//		t.associatedWith in nb.contains[(hasWallOwner.(nb.hasPeople))]
 
-	/**Assumption**/	
-	// No duplicate tag !
-    all t, t':  associatedWith.(nb.hasContent[nb.hasPeople]) |
-	t'.taggedUser = t.taggedUser and
-	t'.associatedWith = t.associatedWith implies
-		t' = t
+    	//As a tag, I must reference to a user, and that user must be my owner's hasFriends
+    	all t: Tag, u: nb.hasPeople | 
+		u = t.taggedUser and t.associatedWith in nb.hasContent[nb.hasPeople] implies u in nb.hasFriends[nb.hasContent.(t.associatedWith)]
+
+		/**Assumption**/	
+		// no duplicate tag !
+    	all t, t':  associatedWith.(nb.hasContent[nb.hasPeople]) |
+		t'.taggedUser = t.taggedUser and
+		t'.associatedWith = t.associatedWith implies
+			t' = t
 }
 
 pred wallInvariant[nb: NiceBook]{
-	// User has only one wall
+	// each user has only one wall
+	// all u: nb.hasPeople | one w: hasWallOwner.(nb.hasPeople) | u = w.hasWallOwner
  	all u: nb.hasPeople | one hasWallOwner.u
-	
-	// Everything on the wall in the Nicebook should be in the map of User->Content
-	// A wall's content must be from its owner or its owner's friends
+	// Everything on the wall in the Nicebook should be in the map of u->c
+	// As a wall, my content must be from my owner or my owner's hasFriends
+
 	all u: nb.hasPeople | 
 		all c: nb.contains[(hasWallOwner.u)] |
 			c in User.(nb.hasContent) and
-			(c not in Comment implies 
-				((nb.hasContent).c = u or (nb.hasContent).c in nb.hasFriends[u]))
+			(c not in Comment implies ((nb.hasContent).c = u or (nb.hasContent).c in nb.hasFriends[u]))
 
-	// Everything that attached to/contained by the wall
-	// should be contained in the wall
+	// I feel like there is other things here, liek PhotoB should appear on A's
+	// wall, if A attached a comment to PhotoB...?
+
+	// everything that attached to/contained by the w.contains 
+	// should be contained in w
 	all w: hasWallOwner.(nb.hasPeople) |
 		all c : nb.contains[w] | 
-			all content: c.hasPhotos + hasPhotos.c + c.(*attachedTo) | 
+			all content: c.hasPhotos + hasPhotos.c + c.(*attachedTo) | //get_all_related_contents[c] | //get_all_comments[c]
 				content in nb.contains[w] 
+
 }
 
-pred NoPrivacyViolation[nb: NiceBook]{
-	// Just consider everything inside NiceBook,
+pred invariant[nb: NiceBook]{
+	// just consider everything inside NiceBook nb,
 	// anything else might be in the next state of nb or 
 	// they might just be some rubbish but we do not care
-    nicebookInvariant[nb]
-    contentInvariant[nb]
-    photoInvariant[nb]
-    noteInvariant[nb]
-    commentInvariant[nb]
-    tagInvariant[nb]
-    wallInvariant[nb]
+    	nicebookInvariant[nb]
+    	contentInvariant[nb]
+    	photoInvariant[nb]
+    	noteInvariant[nb]
+    	commentInvariant[nb]
+    	tagInvariant[nb]
+    	wallInvariant[nb]
+    	//privacyInvariant
 } 
 
-/** Operations **/
+fun get_all_comments[c: Content]: set Comment{
+	{m : Comment | c in m.^attachedTo}
+}
+
+fun get_all_related_contents[c: Content]: set Content{
+	{c.^attachedTo}
+}
+
+fun get_unpublished_content_for_user[nb: NiceBook, u: User] : set Content{
+	{
+		c: Content | 
+			c in nb.hasContent[u] and 
+			c not in nb.contains[(hasWallOwner.u)]//and
+			//u in nb.hasPeople
+	}
+}
+
+fun get_comment_from_content[c: Content] : set Comment{
+	{comment: Comment | c in comment.^attachedTo}
+}
+
+
+/** following are operations **/
 pred preUploadAndPublish[nb,nb':NiceBook,u:User, c:Content]{
 
-	// Pre-condition
-	// User is in NiceBook
+	// pre-condition
+
+	// FORGET THAT!->common sense, c should not have comment
+	// no attachedTo.c
+
+	// user is in NiceBook
 	u in nb.hasPeople
 
-    // No tag associated to that content
+    // no tag associated to that content
+
     no associatedWith.c 
 	no associatedWith.(c.hasPhotos)
 
-	// Frame condition
+	// frame condition
 	nb'.hasPeople = nb.hasPeople
 	nb'.hasFriends = nb.hasFriends
 }
 
 /**upload operations**/
 pred upload_note[nb, nb': NiceBook, u: User, c: Content]{
-	// Photos included in this note should be able to upload
+	// photos included in this note should be able to upload
 	all p: c.hasPhotos |
 		p not in nb.hasContent[nb.hasPeople]
 
@@ -182,21 +232,32 @@ pred upload_note[nb, nb': NiceBook, u: User, c: Content]{
 }
 
 pred upload_photo[nb, nb': NiceBook, u: User, c: Content]{
-	// Photo should not be contained by a note
+	// this photo should not be contained by a note
 	no hasPhotos.c
 	nb'.hasContent = nb.hasContent + u->c
 }
 
-// ***Assumption: Comments cannot be uploaded ***/
+
+// ***Assumption no upload comment function ***/
+
+// pred upload_comment[nb, nb': NiceBook, u: User, c: Content]{
+// 	// for convenience, the comment can only be upload to a
+// 	// uploaded but unpublished content and due to this, the 
+// 	// target content's user should be same
+// 	// if the target content is published, then this should be 
+// 	// completed in publish op
+// 	c.attachedTo in get_unpublished_content_for_user[nb, u]
+// 	nb'.hasContent = nb.hasContent + u->c
+// }
 
 pred upload[nb, nb': NiceBook, u: User, c: Content]{
 	// Assume one can only upload content that is the highest level
 	// e.g. if you want to upload a photo that is contained by a note
 	// in this case, you should upload the note
 
-	// Pre-condition & frame condtion
+	// pre-condition & frame condtion
     
-    // Content not in NiceBook
+    // c does not in NiceBook
 	c not in nb.hasContent[nb.hasPeople]
 
 	c not in Comment
@@ -204,22 +265,28 @@ pred upload[nb, nb': NiceBook, u: User, c: Content]{
     preUploadAndPublish[nb,nb',u,c]
 
 	nb'.contains=nb.contains
-	// Post-condition
-	// Add content based on its type
+	//post-condition, add c based on its type
 	(c in Note and upload_note[nb, nb', u, c]) or
 	(c in Photo and upload_photo[nb, nb', u, c])
 
 }
 
-/**add comment operations**/
+	/**add comment operations**/
 pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment]{
-	// Pre-condition
-	// User should have permission to add comment according to privacy settings
+	/**pre-condition**/
+
+	//that user should have permission to add comment according to privacy settings
 	u in getUserWhoCanView[nb,hasWallOwner.((nb.hasContent).c)]
 
-	// Content should be in the wall, which means that content is published
+	//that content should be in the wall, which means that content is published
 	c in nb.contains[hasWallOwner.(nb.hasPeople)]
 	comment not in nb.contains[hasWallOwner.(nb.hasPeople)]
+
+	//if c does not in Nicebook upload them
+	//if c already uploaded, skip this upload but make sure that 
+	// (comment not in nb.hasContent[nb.hasPeople] and upload[nb,nb',u,comment]) or
+	// (comment in nb.hasContent[u] and preUploadAndPublish[nb,nb',u,comment] 
+	// 	and nb'.hasContent=nb.hasContent and comment not in (nb.contains[hasWallOwner.(nb.hasPeople)]) 
 
 	c in comment.attachedTo
 
@@ -230,73 +297,97 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment]{
     nb'.hasFriends=nb.hasFriends
 }
 
+//run addComment for 3
+
 assert addCommentPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content,comment:Comment |
-		NoPrivacyViolation[nb] and addComment[nb,nb',u,c,comment] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and addComment[nb,nb',u,c,comment] implies
+		invariant[nb']
 }
 
 check addCommentPreserveInvariant for 7
 
+//run upload for 3
+
 assert UploadPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
-		NoPrivacyViolation[nb] and upload[nb,nb',u,c] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and upload[nb,nb',u,c] implies
+		invariant[nb']
 }
 
 check UploadPreserveInvariant for 7
 
-/**remove operations**/
-pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
-	// Everything belong to this note is unpublished
-	// Note's photo
-	all p: c.hasPhotos | p not in nb.contains[(hasWallOwner.u)]
+	/**remove operations**/
 
-	// Remove note and everything belongs to it
+	
+pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
+	// everything belong to this note is unpublished
+	// note's photo
+	all p: c.hasPhotos | p not in nb.contains[(hasWallOwner.u)]
+	//note's comment
+	// get_comment_from_content[c] not in (hasWallOwner.u).contains
+	// note's photo's comment
+	// all p: c.hasPhotos |
+	// 	get_comment_from_content[p]	not in (hasWallOwner.u).contains
+
+	// remove note and everything belong to it
 	nb'.hasContent = nb.hasContent - u->c -
 		{user: User, p:Photo | user = u and p in c.hasPhotos}
+		// {
+		// 	user: User, cm: Comment | user=(nb.hasContent).cm and cm in 
+		// 		(get_comment_from_content[c] +
+		// 		{pcm: Comment| all p: c.hasPhotos | pcm in get_comment_from_content[p]})
+		// }
 }
 
 pred remove_photo[nb, nb': NiceBook, u: User, c: Content]{
-	// No note contains photo, if there is a note, then you should remove note
+	//No note contains photo, if there is a note, then you should remove note
 	no hasPhotos.c
+
 	
-	// Remove photo and everything belongs to it
+	//Remove all photo's comment
+	// get_comment_from_content[c]	not in nb.contains[(hasWallOwner.u)]
+	
+	//Remove photo and everything belong to it
 	nb'.hasContent = nb.hasContent - u->c
+
 }
 
-// Assumption: only unpublished contents can be removed
+//Assumption: only remove unpublished thing
 pred remove[nb, nb': NiceBook, u: User, c: Content]{
-	// Pre-condition
-	// Uploaded but not published, user is in NiceBook
+	// pre condition
+	// uploaded but not published, user is in NiceBook
 	u in nb.hasPeople and u->c in nb.hasContent and
 		c not in nb.contains[(hasWallOwner.u)]
 
-	// Not a comment
+	// c is not a comment
 	c not in Comment
 
-	// Post-condition
-	// Remove c based on its type
+	// post condition, remove c based on its type
 	(c in Note and remove_note[nb, nb', u, c]) or
 	(c in Photo and remove_photo[nb, nb', u, c])
 
-	// Frame condition
+	// frame condition
 	nb'.hasPeople = nb.hasPeople
 	nb'.hasFriends = nb.hasFriends
 	nb'.contains=nb.contains
 }
 
+//run remove for 5
+
 assert RemovePreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
-		NoPrivacyViolation[nb] and remove[nb,nb',u,c] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and remove[nb,nb',u,c] implies
+		invariant[nb']
 }
 
 check RemovePreserveInvariant for 7
 
-/**publish operations**/
+	/**publish operations**/
+
+
 pred publish_note[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
-   	// Photos included in this note should be able to publish
+   	// photos included in this note should be able to publish
     all p:c.hasPhotos |
 		p in nb.hasContent[u] and 
 		p not in nb.contains[(hasWallOwner.(nb.hasPeople))]
@@ -306,7 +397,7 @@ pred publish_note[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
 }
 
 pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
-    // The photo should not be contained by a note
+    // this photo should not be contained by a note
     no hasPhotos.c
 
 	nb'.contains=nb.contains+w->c
@@ -314,21 +405,22 @@ pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
 }
 
 pred publish[nb,nb' : NiceBook, u:User, c:Content, w:Wall]{
-	// Pre-condition
-    // Only wall owner can publish content things on their wall
+
+	/**pre-condition**/
+
+    //only wall owner can publish content things on their wall
     w.hasWallOwner in u
-	
-	// Can't publish comment here, use addCommemt instead
+	//can't publish comment
 	c not in Comment
 
-	// If content does not in Nicebook, upload it
-	// If content has already been uploaded, skip this upload
+	//if c does not in Nicebook upload them
+	//if c already uploaded, skip this upload but make sure that 
 	(c not in nb.hasContent[nb.hasPeople] and upload[nb,nb',u,c]) or
 	(c in nb.hasContent[u] and preUploadAndPublish[nb,nb',u,c] 
 		and nb'.hasContent=nb.hasContent and c not in (nb.contains[hasWallOwner.(nb.hasPeople)])) 
 
-	// Post-condition
-	// Publish content based on its type
+	/**post-condition**/
+	//publish c based on its type
 	(c in Note and publish_note[nb, nb', u, c,w]) or
 	(c in Photo and publish_photo[nb, nb', u, c,w]) 
 
@@ -337,13 +429,12 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w:Wall]{
 }
 
 /**unpublish operation**/
-pred unpublish[nb,nb':NiceBook, u:User, c:Content]{
-	// Pre-condition
-	// User of the content is in NiceBook
+pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
+	//content is already publish, user is in NiceBook
+
 	u in nb.hasPeople 
 	
-	/**Assumption**/
-	// Only the content's owner can unpublish the content
+	//Assumption: only content owner can unpublish content
 	u->c in nb.hasContent 
 
 	no hasPhotos.c
@@ -365,35 +456,36 @@ pred unpublish[nb,nb':NiceBook, u:User, c:Content]{
 			and cm in ((*attachedTo).c+(*attachedTo).(c.hasPhotos))//(c in cm.^attachedTo or c.hasPhotos in cm.^attachedTo)
 		}
 
-	// Frame condition
+	// frame condition
 	nb'.hasPeople = nb.hasPeople
 	nb'.hasFriends = nb.hasFriends
 }
 
+//run unpublish for 5
+
 assert UnPublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
-		NoPrivacyViolation[nb] and unpublish[nb,nb',u,c] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and unpublish[nb,nb',u,c] implies
+		invariant[nb']
 }
 
 check UnPublishPreserveInvariant for 7
 
 /**addTag operation**/
 pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
-	// Pre-condition
+	//Precondition
 
-	/**Assumption**/
-	// A tag can only be attached to published content
-	// Only content owner can tag other users
+	//content is already publish, user is in NiceBook
+	//Assumption!: only content owner can tag other user 
+
 	u in (nb.hasContent).c and u->c in nb.hasContent and 
 	
 	c in tag.associatedWith
 
-	// Only user's friends can tag that user
+	//Only user's hasFriends can tag that user
 	tag.taggedUser = nb.hasFriends[u]
 
-	/**Assumption**/
-	// Photos in note cannot be tagged
+	//Assumption: You can't tag a photo in a note
 	no hasPhotos.c
 
 	c not in Comment
@@ -402,7 +494,7 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 
 	hasWallOwner.(tag.taggedUser)->c not in nb.contains
 
-	// End of Precondtion
+	//end of Precondtion
 	nb'.contains=nb.contains+hasWallOwner.(tag.taggedUser)->c+
 		{wall: Wall, p:Photo | wall = hasWallOwner.(tag.taggedUser) and p in c.hasPhotos} +
 		{
@@ -410,28 +502,27 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 			 and cm in ((*attachedTo).c+(*attachedTo).(c.hasPhotos))
 		}
 
-	// Frame condition
+	//frame condition
 	nb'.hasContent=nb.hasContent
 	nb'.hasFriends=nb.hasFriends
 	nb'.hasPeople=nb.hasPeople
 }
 
+//run addTag for 3
 assert AddTagPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, tag:Tag |
-		NoPrivacyViolation[nb] and addTag[nb,nb',u,tag,c] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and addTag[nb,nb',u,tag,c] implies
+		invariant[nb']
 }
 
 /**removeTag operation **/
 pred removeTag[nb,nb':NiceBook, u:User, tag:Tag]{
-	/**Assumption**/
-	// Only the owner of the content can remove a tag on the content
+	//Assumption: Only associatedWith.tag's owner can removeTag
 	u in (nb.hasContent).(tag.associatedWith)
 
 	u in nb.hasPeople
 
-	/**Assumption**/
-	// Tags from photos in notes cannot be removed
+	//Assumption: You cannot remove a tag from a photo that in a note 
 	no hasPhotos.(tag.associatedWith)
 
 	tag.associatedWith in nb.contains[hasWallOwner.(tag.taggedUser)]
@@ -452,8 +543,8 @@ run removeTag for 3
 
 assert RemoveTagPreserveInvariant {
 	all nb, nb': NiceBook, u:User, tag:Tag |
-		NoPrivacyViolation[nb] and removeTag[nb,nb',u,tag] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and removeTag[nb,nb',u,tag] implies
+		invariant[nb']
 }
 
 check RemoveTagPreserveInvariant for 7
@@ -464,13 +555,12 @@ run publish for 7
 
 assert PublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, w:Wall |
-		NoPrivacyViolation[nb] and publish[nb,nb',u,c,w] implies
-		NoPrivacyViolation[nb']
+		invariant[nb] and publish[nb,nb',u,c,w] implies
+		invariant[nb']
 }
 
 check PublishPreserveInvariant for 7
 
-// Get all user that can view the content according to the privacy setting of the wall
 fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 	w.hasPrivacySetting=EveryOne implies {nb.hasPeople} 
 	
@@ -481,13 +571,12 @@ fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 	else {w.hasWallOwner}
 }
 
-// All content that can be viewed by the user
-fun viewable[nb: NiceBook, u: User]: set Content{
+fun viewable[nb:NiceBook,u:User]:set Content{
 	{c:nb.hasContent[nb.hasPeople]|
 		u in getUserWhoCanView[nb,hasWallOwner.((nb.hasContent).c)]
 		and (some w:hasWallOwner.(nb.hasPeople)| c in nb.contains[w])}
 }
 
 run {
-	all nb: NiceBook | NoPrivacyViolation[nb]
+	all nb: NiceBook | invariant[nb]
 } for 5 but exactly 1 NiceBook, exactly 4 User, exactly 2 Note, exactly 3 Comment, exactly 2 Photo
