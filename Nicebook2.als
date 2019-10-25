@@ -12,7 +12,6 @@ sig Wall{
 	wallOwner: one User,
 	contains: set Content,
 	privacySetting: one PrivacyLevel,
-	userViewContent: User -> set Content
 }
 
 abstract sig Content{
@@ -137,8 +136,8 @@ pred tagInvariant[nb: NiceBook]{
 
 pred wallInvariant[nb: NiceBook]{
 	// each user has only one wall
-	all u: nb.people | one w: wallOwner.(nb.people) | u = w.wallOwner
-
+	// all u: nb.people | one w: wallOwner.(nb.people) | u = w.wallOwner
+ 	all u: nb.people | one wallOwner.u
 	// Everything on the wall in the Nicebook should be in the map of u->c
 	// As a wall, my content must be from my owner or my owner's friends
 	all u: nb.people | 
@@ -157,13 +156,6 @@ pred wallInvariant[nb: NiceBook]{
 			all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
 				content in w.contains 
 
-	//TODO all contents in Wall.contains should be also in userViewContent,vice versa
-
- 
-	all w:wallOwner.(nb.people)|
-		all c: w.contains | 
-			all u: getUserWhoCanView[nb, w.wallOwner] |
-				u->c in w.userViewContent
 }
 
 pred invariant[nb: NiceBook]{
@@ -354,10 +346,6 @@ pred publish_note[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
 
     w'.contains=w.contains+c+c.notePhotos
 
-	//update the mapping who can view that content 
-	w'.userViewContent=w.userViewContent
-		+{user:User,p:Content|user in getUserWhoCanView[nb,u] and p =c}
-		+{user:User,p:c.notePhotos|user in getUserWhoCanView[nb,u]}
 }
 
 pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
@@ -366,9 +354,6 @@ pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
 
     w.contains=w'.contains+c
 
-	//update the mapping who can view that content 
-	w'.userViewContent=w.userViewContent
-		+{user:User,p:Content|user in getUserWhoCanView[nb,u] and p =c}
 }
 
 pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
@@ -404,18 +389,20 @@ assert PublishPreserveInvariant {
 
 check PublishPreserveInvariant for 7
 
-fun getUserWhoCanView[n:NiceBook, u: User]: set User{
-	{n.people}//Default All User
+fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
+	w.privacySetting=EveryOne implies {nb.people} 
+	
+	else w.privacySetting=FriendsOfFriends implies {nb.friends[nb.friends[w.wallOwner]]+nb.friends[w.wallOwner]+w.wallOwner} //Default All User
 
-	//{u} //Only Me
-
-	//{u+u.friends}
-
-	//{u+u.friends+u.friends.friends}
+	else w.privacySetting=Friends implies {nb.friends[w.wallOwner]+w.wallOwner} //Default All User
+	
+	else {w.wallOwner}
 }
 
-fun viewable[n:NiceBook,u:User]:set Content{
-	{content: Content | all w:Wall | u->content in w.userViewContent}
+fun viewable[nb:NiceBook,u:User]:set Content{
+	{c:nb.contents[nb.people]|
+		u in getUserWhoCanView[nb,wallOwner.((nb.contents).c)]
+		and (some w:wallOwner.(nb.people)| c in w.contains)}
 }
 
 run {
