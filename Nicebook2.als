@@ -166,7 +166,7 @@ pred invariant[nb: NiceBook]{
 	// anything else might be in the next state of nb or 
 	// they might just be some rubbish but we do not care
     	nicebookInvariant[nb]
-    	//contentInvariant[nb]
+    	contentInvariant[nb]
     	photoInvariant[nb]
     	noteInvariant[nb]
     	commentInvariant[nb]
