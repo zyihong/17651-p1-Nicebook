@@ -68,7 +68,7 @@ pred contentInvariant[nb: NiceBook]{
 
 	all c : nb.contents[nb.people] |
 		c not in Comment and c not in nb.wallContainer[(wallOwner.((nb.contents).c))] implies 
-		((all w: wallOwner.(nb.people) | c not in nb.wallContainer[w]) and (no commentAttached.c))
+		((all w: wallOwner.(nb.people) | c not in nb.wallContainer[w]))
 }
 
 pred photoInvariant[nb: NiceBook]{
@@ -112,6 +112,9 @@ pred commentInvariant[nb: NiceBook]{
     	//all c:  nb.contents[nb.people] & Comment | 
 //		all w, w': wallOwner.(nb.people) | 
 //			c in w.contains and c in w'.contains implies w = w'
+
+	all c:  nb.contents[nb.people] & Comment | 
+		c in nb.wallContainer[wallOwner.(nb.people)]
 }
 
 pred tagInvariant[nb: NiceBook]{
@@ -153,7 +156,7 @@ pred wallInvariant[nb: NiceBook]{
 	// should be contained in w
 	all w: wallOwner.(nb.people) |
 		all c : nb.wallContainer[w] | 
-			all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
+			all content: c.notePhotos + notePhotos.c + get_all_related_contents[c] | //get_all_comments[c]
 				content in nb.wallContainer[w] 
 
 }
@@ -199,8 +202,8 @@ pred preUploadAndPublish[nb,nb':NiceBook,u:User, c:Content]{
 
 	// pre-condition
 
-	// common sense, c should not have comment
-	no commentAttached.c
+	// FORGET THAT!->common sense, c should not have comment
+	// no commentAttached.c
 
 	// user is in NiceBook
 	u in nb.people
@@ -218,8 +221,7 @@ pred preUploadAndPublish[nb,nb':NiceBook,u:User, c:Content]{
 pred upload_note[nb, nb': NiceBook, u: User, c: Content]{
 	// photos included in this note should be able to upload
 	all p: c.notePhotos |
-		p not in nb.contents[nb.people] and
-		no commentAttached.p
+		p not in nb.contents[nb.people]
 
 	nb'.contents = nb.contents + u->c + 
 		{user: User, p:Photo|user=u and p in c.notePhotos}
@@ -231,15 +233,18 @@ pred upload_photo[nb, nb': NiceBook, u: User, c: Content]{
 	nb'.contents = nb.contents + u->c
 }
 
-pred upload_comment[nb, nb': NiceBook, u: User, c: Content]{
-	// for convenience, the comment can only be upload to a
-	// uploaded but unpublished content and due to this, the 
-	// target content's user should be same
-	// if the target content is published, then this should be 
-	// completed in publish op
-	c.commentAttached in get_unpublished_content_for_user[nb, u]
-	nb'.contents = nb.contents + u->c
-}
+
+// ***Assumption no upload comment function ***/
+
+// pred upload_comment[nb, nb': NiceBook, u: User, c: Content]{
+// 	// for convenience, the comment can only be upload to a
+// 	// uploaded but unpublished content and due to this, the 
+// 	// target content's user should be same
+// 	// if the target content is published, then this should be 
+// 	// completed in publish op
+// 	c.commentAttached in get_unpublished_content_for_user[nb, u]
+// 	nb'.contents = nb.contents + u->c
+// }
 
 pred upload[nb, nb': NiceBook, u: User, c: Content]{
 	// Assume one can only upload content that is the highest level
@@ -251,25 +256,26 @@ pred upload[nb, nb': NiceBook, u: User, c: Content]{
     // c does not in NiceBook
 	c not in nb.contents[nb.people]
 
+	c not in Comment
+
     preUploadAndPublish[nb,nb',u,c]
 
 	nb'.wallContainer=nb.wallContainer
 	//post-condition, add c based on its type
 	(c in Note and upload_note[nb, nb', u, c]) or
-	(c in Photo and upload_photo[nb, nb', u, c]) or
-	(c in Comment and upload_comment[nb, nb', u, c])
+	(c in Photo and upload_photo[nb, nb', u, c])
 
 }
 
 	/**add comment operations**/
-pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w:Wall]{
+pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment]{
 	/**pre-condition**/
 
 	//that user should have permission to add comment according to privacy settings
 	u in getUserWhoCanView[nb,wallOwner.((nb.contents).c)]
 
-	//that content should be in the wall
-	c in nb.wallContainer[w]
+	//that content should be in the wall, which means that content is published
+	c in nb.wallContainer[wallOwner.(nb.people)]
 
 	//if c does not in Nicebook upload them
 	//if c already uploaded, skip this upload but make sure that 
@@ -279,11 +285,24 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w:Wall]{
 
 	c in comment.commentAttached
 
+	nb'.contents=nb.contents+u->comment
+	nb'.wallContainer=nb.wallContainer+{w: (nb.wallContainer).c, cm: Comment | cm = comment}
+
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
 
-//run upload for 3
+run addComment for 3
+
+assert addCommentPreserveInvariant {
+	all nb, nb': NiceBook, u:User, c:Content,comment:Comment |
+		invariant[nb] and addComment[nb,nb',u,c,comment] implies
+		invariant[nb']
+}
+
+check addCommentPreserveInvariant for 3
+
+run upload for 3
 
 assert UploadPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
@@ -322,7 +341,7 @@ pred remove_photo[nb, nb': NiceBook, u: User, c: Content]{
 
 	
 	//Remove all photo's comment
-	get_comment_from_content[c]	not in nb.wallContainer[(wallOwner.u)]
+	// get_comment_from_content[c]	not in nb.wallContainer[(wallOwner.u)]
 	
 	//Remove photo and everything belong to it
 	nb'.contents = nb.contents - u->c
@@ -349,7 +368,7 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	nb'.wallContainer=nb.wallContainer
 }
 
-//run remove for 5
+run remove for 5
 
 assert RemovePreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
@@ -357,7 +376,7 @@ assert RemovePreserveInvariant {
 		invariant[nb']
 }
 
-check RemovePreserveInvariant for 7
+check RemovePreserveInvariant for 5
 
 	/**publish operations**/
 
@@ -365,8 +384,7 @@ check RemovePreserveInvariant for 7
 pred publish_note[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
    	// photos included in this note should be able to publish
     all p:c.notePhotos |
-		p in nb.contents[u] and
-		no commentAttached.p and 
+		p in nb.contents[u] and 
 		p not in nb.wallContainer[(wallOwner.(nb.people))]
 
 	nb'.wallContainer=nb.wallContainer+w->c+
