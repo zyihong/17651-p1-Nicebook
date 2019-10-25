@@ -122,12 +122,12 @@ pred tagInvariant[nb: NiceBook]{
     all comment: Comment, t:Tag| comment not in t.tagAssociated
 
 	// a tag can nonly be attached to published stuff /**Assumption**/
-	all t: Tag | 
-		t.tagAssociated in nb.wallContainer[(wallOwner.(nb.people))]
+//	all t: Tag | 
+//		t.tagAssociated in nb.wallContainer[(wallOwner.(nb.people))]
 
     	//As a tag, I must reference to a user, and that user must be my owner's friends
     	all t: Tag, u: nb.people | 
-		u = t.tagUser implies u in nb.friends[nb.contents.(t.tagAssociated)]
+		u = t.tagUser and t.tagAssociated in nb.contents[nb.people] implies u in nb.friends[nb.contents.(t.tagAssociated)]
 
 		/**Assumption**/	
 		// no duplicate tag !
@@ -211,6 +211,7 @@ pred preUploadAndPublish[nb,nb':NiceBook,u:User, c:Content]{
     // no tag associated to that content
 
     no tagAssociated.c 
+	no tagAssociated.(c.notePhotos)
 
 	// frame condition
 	nb'.people = nb.people
@@ -293,7 +294,7 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment]{
     nb'.friends=nb.friends
 }
 
-run addComment for 3
+//run addComment for 3
 
 assert addCommentPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content,comment:Comment |
@@ -301,9 +302,9 @@ assert addCommentPreserveInvariant {
 		invariant[nb']
 }
 
-check addCommentPreserveInvariant for 5
+//check addCommentPreserveInvariant for 5
 
-run upload for 3
+//run upload for 3
 
 assert UploadPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
@@ -311,7 +312,7 @@ assert UploadPreserveInvariant {
 		invariant[nb']
 }
 
-check UploadPreserveInvariant for 7
+//check UploadPreserveInvariant for 7
 
 	/**remove operations**/
 
@@ -369,7 +370,7 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	nb'.wallContainer=nb.wallContainer
 }
 
-run remove for 5
+//run remove for 5
 
 assert RemovePreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
@@ -377,7 +378,7 @@ assert RemovePreserveInvariant {
 		invariant[nb']
 }
 
-check RemovePreserveInvariant for 5
+//check RemovePreserveInvariant for 2
 
 	/**publish operations**/
 
@@ -437,18 +438,19 @@ pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
 
 	c not in Comment
 
+	c in nb.wallContainer[wallOwner.u]
+
 	nb'.wallContainer=nb.wallContainer - wallOwner.(nb.people)->c -
 		{wall: Wall, p:Photo | wall in wallOwner.(nb.people) and p in c.notePhotos}-		
 		{	
-			wall: Wall, cm: nb.contents[(nb.contents).c] | wall in wallOwner.(nb.people)
-			 and cm in (commentAttached.c+commentAttached.(c.notePhotos))
+			wall: Wall, cm: nb.contents[nb.people] | wall in wallOwner.(nb.people)
+			 and cm in ((*commentAttached).c+(*commentAttached).(c.notePhotos))
 		}
 
-	nb'.contents=nb.contents - nb.people->c -
-		{user: User, p:Photo | user in nb.people and p in c.notePhotos}-		
+	nb'.contents=nb.contents -		
 		{	
-			user: User, cm: nb.contents[(nb.contents).c] | user in nb.people
-			and cm in (commentAttached.c+commentAttached.(c.notePhotos))
+			user: User, cm: nb.contents[nb.people] & Comment | user in nb.people
+			and cm in ((*commentAttached).c+(*commentAttached).(c.notePhotos))//(c in cm.^commentAttached or c.notePhotos in cm.^commentAttached)
 		}
 
 	// frame condition
@@ -456,7 +458,7 @@ pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
 	nb'.friends = nb.friends
 }
 
-run unpublish for 5
+//run unpublish for 5
 
 assert UnPublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content |
@@ -464,7 +466,7 @@ assert UnPublishPreserveInvariant {
 		invariant[nb']
 }
 
-check UnPublishPreserveInvariant for 3
+//check UnPublishPreserveInvariant for 7
 
 /**addTag operation**/
 pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
@@ -485,14 +487,16 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 
 	c not in Comment
 
+	wallOwner.u->c in nb.wallContainer
+
 	wallOwner.(tag.tagUser)->c not in nb.wallContainer
 
 	//end of Precondtion
 	nb'.wallContainer=nb.wallContainer+wallOwner.(tag.tagUser)->c+
 		{wall: Wall, p:Photo | wall = wallOwner.(tag.tagUser) and p in c.notePhotos} +
 		{
-			wall: Wall, cm: nb.contents[(nb.contents).c] | wall = wallOwner.(tag.tagUser)
-			 and cm in (commentAttached.c+commentAttached.(c.notePhotos))
+			wall: Wall, cm: nb.contents[nb.people] | wall = wallOwner.(tag.tagUser)
+			 and cm in ((*commentAttached).c+(*commentAttached).(c.notePhotos))
 		}
 
 	//frame condition
@@ -501,16 +505,16 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 	nb'.people=nb.people
 }
 
-run addTag for 3
+//run addTag for 3
 assert AddTagPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, tag:Tag |
 		invariant[nb] and addTag[nb,nb',u,tag,c] implies
 		invariant[nb']
 }
 
-check AddTagPreserveInvariant for 5
+//check AddTagPreserveInvariant for 5
 
-run publish for 7
+//run publish for 7
 
 assert PublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, w:Wall |
@@ -518,7 +522,7 @@ assert PublishPreserveInvariant {
 		invariant[nb']
 }
 
-check PublishPreserveInvariant for 7
+//check PublishPreserveInvariant for 7
 
 fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 	w.privacySetting=EveryOne implies {nb.people} 
