@@ -425,12 +425,46 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w:Wall]{
 }
 
 /**unpublish operation**/
-// pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
-// 	//content is already publish, user is in NiceBook
+pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
+	//content is already publish, user is in NiceBook
 
-// 	u in nb.people and u->c in nb.contents and 
+	u in nb.people 
+	
+	//Assumption: only content owner can unpublish content
+	u->c in nb.contents 
 
-// }
+	no notePhotos.c
+
+	c not in Comment
+
+	nb'.wallContainer=nb.wallContainer - wallOwner.(nb.people)->c -
+		{wall: Wall, p:Photo | wall in wallOwner.(nb.people) and p in c.notePhotos}-		
+		{	
+			wall: Wall, cm: nb.contents[(nb.contents).c] | wall in wallOwner.(nb.people)
+			 and cm in (commentAttached.c+commentAttached.(c.notePhotos))
+		}
+
+	nb'.contents=nb.contents - nb.people->c -
+		{user: User, p:Photo | user in nb.people and p in c.notePhotos}-		
+		{	
+			user: User, cm: nb.contents[(nb.contents).c] | user in nb.people
+			and cm in (commentAttached.c+commentAttached.(c.notePhotos))
+		}
+
+	// frame condition
+	nb'.people = nb.people
+	nb'.friends = nb.friends
+}
+
+run unpublish for 5
+
+assert UnPublishPreserveInvariant {
+	all nb, nb': NiceBook, u:User, c:Content |
+		invariant[nb] and unpublish[nb,nb',u,c] implies
+		invariant[nb']
+}
+
+check UnPublishPreserveInvariant for 3
 
 /**addTag operation**/
 pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
@@ -441,6 +475,8 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 
 	u in (nb.contents).c and u->c in nb.contents and 
 	
+	c in tag.tagAssociated
+
 	//Only user's friends can tag that user
 	tag.tagUser = nb.friends[u]
 
@@ -455,9 +491,8 @@ pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
 	nb'.wallContainer=nb.wallContainer+wallOwner.(tag.tagUser)->c+
 		{wall: Wall, p:Photo | wall = wallOwner.(tag.tagUser) and p in c.notePhotos} +
 		{
-			wall: Wall, cm: nb.contents[nb.people] | wall = wallOwner.(tag.tagUser) and cm in 
-				(get_comment_from_content[c] +
-				{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
+			wall: Wall, cm: nb.contents[(nb.contents).c] | wall = wallOwner.(tag.tagUser)
+			 and cm in (commentAttached.c+commentAttached.(c.notePhotos))
 		}
 
 	//frame condition
@@ -473,7 +508,7 @@ assert AddTagPreserveInvariant {
 		invariant[nb']
 }
 
-check AddTagPreserveInvariant for 3
+check AddTagPreserveInvariant for 5
 
 run publish for 7
 
