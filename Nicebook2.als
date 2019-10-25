@@ -260,6 +260,33 @@ pred upload[nb, nb': NiceBook, u: User, c: Content]{
 
 }
 
+	/**add comment operations**/
+pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w,w':Wall]{
+	/**pre-condition**/
+
+	//that user should have permission to add comment according to privacy settings
+	u in getUserWhoCanView[nb,wallOwner.((nb.contents).c)]
+
+	//that content should be in the wall
+	c in w.contains
+
+	//if c does not in Nicebook upload them
+	//if c already uploaded, skip this upload but make sure that 
+	(comment not in nb.contents[nb.people] and upload[nb,nb',u,comment]) or
+	(comment in nb.contents[u] and preUploadAndPublish[nb,nb',u,comment] 
+		and nb'.contents=nb.contents and comment not in (wallOwner.(nb.people)).contains) 
+
+	c in comment.commentAttached
+
+	w'.wallOwner=w.wallOwner
+
+	w'.privacySetting=w.privacySetting
+
+	w'.contains=w.contains
+    nb'.people=nb.people
+    nb'.friends=nb.friends
+}
+
 //run upload for 3
 
 assert UploadPreserveInvariant {
