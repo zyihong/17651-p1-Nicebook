@@ -262,7 +262,7 @@ pred upload[nb, nb': NiceBook, u: User, c: Content]{
 }
 
 	/**add comment operations**/
-pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w,w':Wall]{
+pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w:Wall]{
 	/**pre-condition**/
 
 	//that user should have permission to add comment according to privacy settings
@@ -279,11 +279,6 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w,w':Wall
 
 	c in comment.commentAttached
 
-	w'.wallOwner=w.wallOwner
-
-	w'.privacySetting=w.privacySetting
-
-	// w'.contains=w.contains
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
@@ -367,28 +362,26 @@ check RemovePreserveInvariant for 7
 	/**publish operations**/
 
 
-pred publish_note[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
+pred publish_note[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
    	// photos included in this note should be able to publish
     all p:c.notePhotos |
 		p in nb.contents[u] and
 		no commentAttached.p and 
 		p not in nb.wallContainer[(wallOwner.(nb.people))]
 
-	//w'.contains=w.contains+c+c.notePhotos
 	nb'.wallContainer=nb.wallContainer+w->c+
 		{wall: Wall,p:Photo|wall=w and p in c.notePhotos}
 }
 
-pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
+pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w:Wall]{
     // this photo should not be contained by a note
     no notePhotos.c
 
-    //w.contains=w'.contains+c
 	nb'.wallContainer=nb.wallContainer+w->c
 
 }
 
-pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
+pred publish[nb,nb' : NiceBook, u:User, c:Content, w:Wall]{
 
 	/**pre-condition**/
 
@@ -405,10 +398,8 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 
 	/**post-condition**/
 	//publish c based on its type
-	(c in Note and publish_note[nb, nb', u, c,w,w']) or
-	(c in Photo and publish_photo[nb, nb', u, c,w,w']) 
-
-	w'.wallOwner=w.wallOwner
+	(c in Note and publish_note[nb, nb', u, c,w]) or
+	(c in Photo and publish_photo[nb, nb', u, c,w]) 
 
     nb'.people=nb.people
     nb'.friends=nb.friends
@@ -417,8 +408,8 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 run publish for 7
 
 assert PublishPreserveInvariant {
-	all nb, nb': NiceBook, u:User, c:Content, w,w':Wall |
-		invariant[nb] and publish[nb,nb',u,c,w,w'] implies
+	all nb, nb': NiceBook, u:User, c:Content, w:Wall |
+		invariant[nb] and publish[nb,nb',u,c,w] implies
 		invariant[nb']
 }
 
