@@ -342,7 +342,8 @@ pred publish_note[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
    	// photos included in this note should be able to publish
     all p:c.notePhotos |
 		p in nb.contents[u] and
-		no commentAttached.p
+		no commentAttached.p and 
+		p not in (wallOwner.(nb.people)).contains
 
     w'.contains=w.contains+c+c.notePhotos
 
@@ -368,7 +369,8 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 	//if c does not in Nicebook upload them
 	//if c already uploaded, skip this upload but make sure that 
 	(c not in nb.contents[nb.people] and upload[nb,nb',u,c]) or
-	(c in nb.contents[u] and preUploadAndPublish[nb,nb',u,c] and nb'.contents=nb.contents) 
+	(c in nb.contents[u] and preUploadAndPublish[nb,nb',u,c] 
+		and nb'.contents=nb.contents and c not in (wallOwner.(nb.people)).contains) 
 
 	/**post-condition**/
 	//publish c based on its type
@@ -380,6 +382,8 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
+
+run publish for 7
 
 assert PublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, w,w':Wall |
