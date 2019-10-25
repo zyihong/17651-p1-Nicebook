@@ -1,8 +1,9 @@
 sig NiceBook{
 	contents: User-> set Content,
 	friends: User -> set User,
-	people: set User
+	people: set User,
 	// userHasWall: User->one Wall
+	wallContainer: Wall-> set Content
 }
 
 sig User{
@@ -10,7 +11,6 @@ sig User{
 
 sig Wall{
 	wallOwner: one User,
-	contains: set Content,
 	privacySetting: one PrivacyLevel,
 }
 
@@ -67,8 +67,8 @@ pred contentInvariant[nb: NiceBook]{
 	// on B's comtent and that will only appear on B's wall
 
 	all c : nb.contents[nb.people] |
-		c not in Comment and c not in (wallOwner.((nb.contents).c)).contains implies 
-		((all w: wallOwner.(nb.people) | c not in w.contains) and (no commentAttached.c))	
+		c not in Comment and c not in nb.wallContainer[(wallOwner.((nb.contents).c))] implies 
+		((all w: wallOwner.(nb.people) | c not in nb.wallContainer[w]) and (no commentAttached.c))
 }
 
 pred photoInvariant[nb: NiceBook]{
@@ -120,7 +120,7 @@ pred tagInvariant[nb: NiceBook]{
 
 	// a tag can nonly be attached to published stuff /**Assumption**/
 	all t: Tag | 
-		t.tagAssociated in (wallOwner.(nb.people)).contains
+		t.tagAssociated in nb.wallContainer[(wallOwner.(nb.people))]
 
     	//As a tag, I must reference to a user, and that user must be my owner's friends
     	all t: Tag, u: nb.people | 
@@ -141,7 +141,7 @@ pred wallInvariant[nb: NiceBook]{
 	// Everything on the wall in the Nicebook should be in the map of u->c
 	// As a wall, my content must be from my owner or my owner's friends
 	all u: nb.people | 
-		all c: (wallOwner.u).contains |
+		all c: nb.wallContainer[(wallOwner.u)] |
 			c in User.(nb.contents) and
 			((nb.contents).c = u or (nb.contents).c in nb.friends[u]) and 
 			(c not in Comment implies (nb.contents).c = u)
@@ -152,9 +152,9 @@ pred wallInvariant[nb: NiceBook]{
 	// everything that attached to/contained by the w.contains 
 	// should be contained in w
 	all w: wallOwner.(nb.people) |
-		all c : w.contains | 
+		all c : nb.wallContainer[w] | 
 			all content: c.notePhotos + notePhotos.c + get_all_comments[c] + get_all_related_contents[c] | 
-				content in w.contains 
+				content in nb.wallContainer[w] 
 
 }
 
@@ -184,7 +184,7 @@ fun get_unpublished_content_for_user[nb: NiceBook, u: User] : set Content{
 	{
 		c: Content | 
 			c in nb.contents[u] and 
-			c not in (wallOwner.u).contains //and
+			c not in nb.wallContainer[(wallOwner.u)]//and
 			//u in nb.people
 	}
 }
@@ -253,6 +253,7 @@ pred upload[nb, nb': NiceBook, u: User, c: Content]{
 
     preUploadAndPublish[nb,nb',u,c]
 
+	nb'.wallContainer=nb.wallContainer
 	//post-condition, add c based on its type
 	(c in Note and upload_note[nb, nb', u, c]) or
 	(c in Photo and upload_photo[nb, nb', u, c]) or
@@ -268,13 +269,13 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w,w':Wall
 	u in getUserWhoCanView[nb,wallOwner.((nb.contents).c)]
 
 	//that content should be in the wall
-	c in w.contains
+	c in nb.wallContainer[w]
 
 	//if c does not in Nicebook upload them
 	//if c already uploaded, skip this upload but make sure that 
-	(comment not in nb.contents[nb.people] and upload[nb,nb',u,comment]) or
-	(comment in nb.contents[u] and preUploadAndPublish[nb,nb',u,comment] 
-		and nb'.contents=nb.contents and comment not in (wallOwner.(nb.people)).contains) 
+	// (comment not in nb.contents[nb.people] and upload[nb,nb',u,comment]) or
+	// (comment in nb.contents[u] and preUploadAndPublish[nb,nb',u,comment] 
+	// 	and nb'.contents=nb.contents and comment not in (nb.wallContainer[wallOwner.(nb.people)]) 
 
 	c in comment.commentAttached
 
@@ -282,7 +283,7 @@ pred addComment[nb,nb' : NiceBook, u:User, c:Content,comment: Comment, w,w':Wall
 
 	w'.privacySetting=w.privacySetting
 
-	w'.contains=w.contains
+	// w'.contains=w.contains
     nb'.people=nb.people
     nb'.friends=nb.friends
 }
@@ -303,7 +304,7 @@ check UploadPreserveInvariant for 7
 pred remove_note[nb, nb': NiceBook, u: User, c: Content]{
 	// everything belong to this note is unpublished
 	// note's photo
-	all p: c.notePhotos | p not in (wallOwner.u).contains
+	all p: c.notePhotos | p not in nb.wallContainer[(wallOwner.u)]
 	//note's comment
 	// get_comment_from_content[c] not in (wallOwner.u).contains
 	// note's photo's comment
@@ -326,7 +327,7 @@ pred remove_photo[nb, nb': NiceBook, u: User, c: Content]{
 
 	
 	//Remove all photo's comment
-	get_comment_from_content[c]	not in (wallOwner.u).contains
+	get_comment_from_content[c]	not in nb.wallContainer[(wallOwner.u)]
 	
 	//Remove photo and everything belong to it
 	nb'.contents = nb.contents - u->c
@@ -338,7 +339,7 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	// pre condition
 	// uploaded but not published, user is in NiceBook
 	u in nb.people and u->c in nb.contents and
-		c not in (wallOwner.u).contains
+		c not in nb.wallContainer[(wallOwner.u)]
 
 	// c is not a comment
 	c not in Comment
@@ -350,6 +351,7 @@ pred remove[nb, nb': NiceBook, u: User, c: Content]{
 	// frame condition
 	nb'.people = nb.people
 	nb'.friends = nb.friends
+	nb'.wallContainer=nb.wallContainer
 }
 
 //run remove for 5
@@ -370,17 +372,19 @@ pred publish_note[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
     all p:c.notePhotos |
 		p in nb.contents[u] and
 		no commentAttached.p and 
-		p not in (wallOwner.(nb.people)).contains
+		p not in nb.wallContainer[(wallOwner.(nb.people))]
 
-    w'.contains=w.contains+c+c.notePhotos
-
+	//w'.contains=w.contains+c+c.notePhotos
+	nb'.wallContainer=nb.wallContainer+w->c+
+		{wall: Wall,p:Photo|wall=w and p in c.notePhotos}
 }
 
 pred publish_photo[nb,nb':NiceBook, u:User, c:Content, w,w':Wall]{
     // this photo should not be contained by a note
     no notePhotos.c
 
-    w.contains=w'.contains+c
+    //w.contains=w'.contains+c
+	nb'.wallContainer=nb.wallContainer+w->c
 
 }
 
@@ -397,7 +401,7 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w,w':Wall]{
 	//if c already uploaded, skip this upload but make sure that 
 	(c not in nb.contents[nb.people] and upload[nb,nb',u,c]) or
 	(c in nb.contents[u] and preUploadAndPublish[nb,nb',u,c] 
-		and nb'.contents=nb.contents and c not in (wallOwner.(nb.people)).contains) 
+		and nb'.contents=nb.contents and c not in (nb.wallContainer[wallOwner.(nb.people)])) 
 
 	/**post-condition**/
 	//publish c based on its type
@@ -433,7 +437,7 @@ fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 fun viewable[nb:NiceBook,u:User]:set Content{
 	{c:nb.contents[nb.people]|
 		u in getUserWhoCanView[nb,wallOwner.((nb.contents).c)]
-		and (some w:wallOwner.(nb.people)| c in w.contains)}
+		and (some w:wallOwner.(nb.people)| c in nb.wallContainer[w])}
 }
 
 run {
