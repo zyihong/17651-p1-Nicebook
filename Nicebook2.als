@@ -424,6 +424,57 @@ pred publish[nb,nb' : NiceBook, u:User, c:Content, w:Wall]{
     nb'.friends=nb.friends
 }
 
+/**unpublish operation**/
+// pred unpublish[nb,nb':NiceBook, u:User,c:Content]{
+// 	//content is already publish, user is in NiceBook
+
+// 	u in nb.people and u->c in nb.contents and 
+
+// }
+
+/**addTag operation**/
+pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
+	//Precondition
+
+	//content is already publish, user is in NiceBook
+	//Assumption!: only content owner can tag other user 
+
+	u in (nb.contents).c and u->c in nb.contents and 
+	
+	//Only user's friends can tag that user
+	tag.tagUser = nb.friends[u]
+
+	//Assumption: You can't tag a photo in a note
+	no notePhotos.c
+
+	c not in Comment
+
+	wallOwner.(tag.tagUser)->c not in nb.wallContainer
+
+	//end of Precondtion
+	nb'.wallContainer=nb.wallContainer+wallOwner.(tag.tagUser)->c+
+		{wall: Wall, p:Photo | wall = wallOwner.(tag.tagUser) and p in c.notePhotos} +
+		{
+			wall: Wall, cm: nb.contents[nb.people] | wall = wallOwner.(tag.tagUser) and cm in 
+				(get_comment_from_content[c] +
+				{pcm: Comment| all p: c.notePhotos | pcm in get_comment_from_content[p]})
+		}
+
+	//frame condition
+	nb'.contents=nb.contents
+	nb'.friends=nb.friends
+	nb'.people=nb.people
+}
+
+run addTag for 3
+assert AddTagPreserveInvariant {
+	all nb, nb': NiceBook, u:User, c:Content, tag:Tag |
+		invariant[nb] and addTag[nb,nb',u,tag,c] implies
+		invariant[nb']
+}
+
+check AddTagPreserveInvariant for 3
+
 run publish for 7
 
 assert PublishPreserveInvariant {
