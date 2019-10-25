@@ -156,7 +156,7 @@ pred wallInvariant[nb: NiceBook]{
 	// should be contained in w
 	all w: wallOwner.(nb.people) |
 		all c : nb.wallContainer[w] | 
-			all content: c.notePhotos + notePhotos.c + get_all_related_contents[c] | //get_all_comments[c]
+			all content: c.notePhotos + notePhotos.c + (*commentAttached).c | //get_all_related_contents[c] | //get_all_comments[c]
 				content in nb.wallContainer[w] 
 
 }
@@ -166,7 +166,7 @@ pred invariant[nb: NiceBook]{
 	// anything else might be in the next state of nb or 
 	// they might just be some rubbish but we do not care
     	nicebookInvariant[nb]
-    	contentInvariant[nb]
+    	//contentInvariant[nb]
     	photoInvariant[nb]
     	noteInvariant[nb]
     	commentInvariant[nb]
@@ -302,7 +302,7 @@ assert addCommentPreserveInvariant {
 		invariant[nb']
 }
 
-//check addCommentPreserveInvariant for 5
+check addCommentPreserveInvariant for 5
 
 //run upload for 3
 
@@ -312,7 +312,7 @@ assert UploadPreserveInvariant {
 		invariant[nb']
 }
 
-//check UploadPreserveInvariant for 7
+check UploadPreserveInvariant for 7
 
 	/**remove operations**/
 
@@ -378,7 +378,7 @@ assert RemovePreserveInvariant {
 		invariant[nb']
 }
 
-//check RemovePreserveInvariant for 2
+check RemovePreserveInvariant for 2
 
 	/**publish operations**/
 
@@ -466,7 +466,7 @@ assert UnPublishPreserveInvariant {
 		invariant[nb']
 }
 
-//check UnPublishPreserveInvariant for 7
+check UnPublishPreserveInvariant for 7
 
 /**addTag operation**/
 pred addTag[nb,nb':NiceBook, u:User,tag:Tag,c:Content]{
@@ -544,11 +544,11 @@ assert RemoveTagPreserveInvariant {
 		invariant[nb']
 }
 
-check RemoveTagPreserveInvariant for 2
+check RemoveTagPreserveInvariant for 5
 
-//check AddTagPreserveInvariant for 5
+check AddTagPreserveInvariant for 5
 
-//run publish for 7
+run publish for 7
 
 assert PublishPreserveInvariant {
 	all nb, nb': NiceBook, u:User, c:Content, w:Wall |
@@ -556,7 +556,7 @@ assert PublishPreserveInvariant {
 		invariant[nb']
 }
 
-//check PublishPreserveInvariant for 7
+check PublishPreserveInvariant for 2
 
 fun getUserWhoCanView[nb:NiceBook, w: Wall]: set User{
 	w.privacySetting=EveryOne implies {nb.people} 
